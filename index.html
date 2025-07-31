@@ -116,7 +116,7 @@
       const sigma = document.getElementById('volatility').value;
       const optionType = document.getElementById('optionType').value;
 
-      const response = await fetch("https://YOUR-BACKEND-URL.onrender.com/price", {
+      const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
