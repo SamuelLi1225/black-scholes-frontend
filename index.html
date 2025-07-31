@@ -2,174 +2,136 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Black-Scholes Option Pricer</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      background: linear-gradient(to bottom right, #1e3c50, #274d5e);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       color: #fff;
-      font-family: Arial, sans-serif;
-      padding: 2rem;
+      padding: 40px;
     }
-
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+    h1, h2 {
+      color: #fff;
     }
-
-    input, select, button {
-      margin: 0.5rem 0;
-      padding: 0.5rem;
-      border-radius: 5px;
-      border: none;
-      font-size: 1rem;
-    }
-
     label {
       display: block;
-      margin-top: 1rem;
+      margin-top: 10px;
+      font-weight: bold;
     }
-
-    #heatmapContainer {
-      margin-top: 2rem;
+    input, select {
+      width: 200px;
+      padding: 8px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: none;
     }
-
-    canvas {
-      background-color: #fff;
-      border-radius: 8px;
-    }
-
-    .button-row {
-      margin-top: 1rem;
-    }
-
-    .button-row button {
-      margin-right: 1rem;
-      background-color: #28a745;
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #2ecc71;
+      border: none;
+      border-radius: 5px;
       color: white;
+      font-weight: bold;
       cursor: pointer;
+    }
+    table {
+      margin-top: 30px;
+      border-collapse: collapse;
+      width: 100%;
+      background: white;
+      color: black;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <h1>Black-Scholes Option Pricer</h1>
 
-  <label>Stock Price: <input type="number" id="stockPrice" value="100" /></label>
-  <label>Strike Price: <input type="number" id="strikePrice" value="90" /></label>
-  <label>Time to Maturity (years): <input type="number" id="timeToMaturity" value="1" /></label>
-  <label>Interest Rate: <input type="number" id="interestRate" step="0.01" value="0.05" /></label>
-  <label>Volatility: <input type="number" id="volatility" step="0.01" value="0.2" /></label>
-  <label>Option Type:
-    <select id="optionType">
-      <option value="call">Call</option>
-      <option value="put">Put</option>
+  <label>Stock Price: <input id="stock" value="100" /></label>
+  <label>Strike Price: <input id="strike" value="90" /></label>
+  <label>Time to Maturity (years): <input id="maturity" value="1" /></label>
+  <label>Interest Rate: <input id="rate" value="0.05" /></label>
+  <label>Volatility: <input id="volatility" value="0.2" /></label>
+  <label>Option Type: 
+    <select id="type">
+      <option value="Call">Call</option>
+      <option value="Put">Put</option>
     </select>
   </label>
 
-  <div class="button-row">
-    <button onclick="showHeatmap()">Show Heat Map</button>
-  </div>
+  <br>
+  <button onclick="calculate()">Calculate</button>
+  <button onclick="generateTable()">Generate Price Table</button>
 
-  <div id="heatmapContainer">
-    <h2>Heatmap (Strike vs Volatility)</h2>
-    <canvas id="heatmap" width="800" height="500"></canvas>
-  </div>
+  <h2 id="result"></h2>
+
+  <h2>Option Price Table (Strike vs Volatility)</h2>
+  <table id="optionTable"></table>
 
   <script>
-    async function getOptionPrice(data) {
-      try {
-        const response = await fetch("https://black-scholes-api-w8et.onrender.com/api/price", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
+    async function calculate() {
+      const S = parseFloat(document.getElementById("stock").value);
+      const K = parseFloat(document.getElementById("strike").value);
+      const T = parseFloat(document.getElementById("maturity").value);
+      const r = parseFloat(document.getElementById("rate").value);
+      const sigma = parseFloat(document.getElementById("volatility").value);
+      const type = document.getElementById("type").value;
 
-        const result = await response.json();
-        return result.option_price || null;
-      } catch (error) {
-        console.error("API Error:", error);
-        return null;
-      }
-    }
-
-    async function showHeatmap() {
-      const stockPrice = parseFloat(document.getElementById("stockPrice").value);
-      const T = parseFloat(document.getElementById("timeToMaturity").value);
-      const r = parseFloat(document.getElementById("interestRate").value);
-      const optionType = document.getElementById("optionType").value;
-
-      const strikes = Array.from({ length: 11 }, (_, i) => 80 + i * 4); // 80 to 120
-      const volatilities = Array.from({ length: 11 }, (_, i) => 0.1 + i * 0.03); // 0.1 to 0.4
-
-      const dataMatrix = [];
-
-      for (const v of volatilities) {
-        const row = [];
-        for (const k of strikes) {
-          const price = await getOptionPrice({
-            S: stockPrice,
-            K: k,
-            T,
-            r,
-            sigma: v,
-            option_type: optionType
-          });
-          row.push(price ?? 0);
-        }
-        dataMatrix.push(row);
-      }
-
-      renderHeatmap(strikes, volatilities, dataMatrix);
-    }
-
-    let chartInstance;
-
-    function renderHeatmap(strikes, volatilities, matrix) {
-      const ctx = document.getElementById("heatmap").getContext("2d");
-
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-
-      chartInstance = new Chart(ctx, {
-        type: "heatmap",
-        data: {
-          labels: strikes.map(k => `K=${k}`),
-          datasets: volatilities.map((v, i) => ({
-            label: `σ=${v.toFixed(2)}`,
-            data: matrix[i],
-            backgroundColor: matrix[i].map(val =>
-              `rgba(0, 255, 0, ${Math.min(1, val / 30)})`
-            ),
-            borderColor: "#ccc",
-            borderWidth: 1
-          }))
+      const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
         },
-        options: {
-          responsive: true,
-          scales: {
-            x: {
-              title: { display: true, text: "Strike Price" }
-            },
-            y: {
-              title: { display: true, text: "Volatility (σ)" },
-              ticks: {
-                callback: (val, i) => `σ=${volatilities[i].toFixed(2)}`
-              }
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `Option Price: $${context.raw.toFixed(2)}`;
-                }
-              }
-            }
-          }
-        }
+        body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
       });
+
+      const data = await response.json();
+      document.getElementById("result").innerText = `Option Price: $${data.price.toFixed(2)}`;
+    }
+
+    async function fetchOptionPrice(S, K, T, r, sigma, type) {
+      const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
+      });
+
+      const data = await response.json();
+      return data.price.toFixed(2);
+    }
+
+    async function generateTable() {
+      const table = document.getElementById("optionTable");
+      const strikes = [80, 85, 90, 95, 100];
+      const vols = [0.1, 0.15, 0.2, 0.25, 0.3];
+
+      const S = parseFloat(document.getElementById("stock").value);
+      const T = parseFloat(document.getElementById("maturity").value);
+      const r = parseFloat(document.getElementById("rate").value);
+      const type = document.getElementById("type").value;
+
+      let html = "<tr><th>Strike \\ Vol</th>";
+      for (let v of vols) html += `<th>${v}</th>`;
+      html += "</tr>";
+
+      for (let k of strikes) {
+        html += `<tr><td>${k}</td>`;
+        for (let sigma of vols) {
+          const price = await fetchOptionPrice(S, k, T, r, sigma, type);
+          html += `<td>$${price}</td>`;
+        }
+        html += "</tr>";
+      }
+
+      table.innerHTML = html;
     }
   </script>
 </body>
