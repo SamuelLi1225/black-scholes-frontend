@@ -2,136 +2,175 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Black-Scholes Option Pricer</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #1e3c50, #274a5e);
+      background: linear-gradient(to bottom right, #1e3c50, #274d5e);
       color: #fff;
-      padding: 30px;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
     }
+
     h1 {
-      font-size: 2em;
-      margin-bottom: 20px;
+      font-size: 2rem;
+      margin-bottom: 1rem;
     }
-    input, select {
-      padding: 5px;
-      margin-bottom: 10px;
-      width: 200px;
+
+    input, select, button {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+    }
+
+    label {
       display: block;
+      margin-top: 1rem;
     }
-    button {
-      padding: 10px 15px;
+
+    #heatmapContainer {
+      margin-top: 2rem;
+    }
+
+    canvas {
+      background-color: #fff;
+      border-radius: 8px;
+    }
+
+    .button-row {
+      margin-top: 1rem;
+    }
+
+    .button-row button {
+      margin-right: 1rem;
       background-color: #28a745;
       color: white;
-      border: none;
-      margin-right: 10px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <h1>Black-Scholes Option Pricer</h1>
 
-  <label>Stock Price: <input id="stockPrice" value="100" /></label>
-  <label>Strike Price: <input id="strikePrice" value="90" /></label>
-  <label>Time to Maturity (years): <input id="maturity" value="1" /></label>
-  <label>Interest Rate: <input id="interestRate" value="0.05" /></label>
-  <label>Volatility: <input id="volatility" value="0.2" /></label>
-  <label>Option Type: 
+  <label>Stock Price: <input type="number" id="stockPrice" value="100" /></label>
+  <label>Strike Price: <input type="number" id="strikePrice" value="90" /></label>
+  <label>Time to Maturity (years): <input type="number" id="timeToMaturity" value="1" /></label>
+  <label>Interest Rate: <input type="number" id="interestRate" step="0.01" value="0.05" /></label>
+  <label>Volatility: <input type="number" id="volatility" step="0.01" value="0.2" /></label>
+  <label>Option Type:
     <select id="optionType">
-      <option value="Call">Call</option>
-      <option value="Put">Put</option>
+      <option value="call">Call</option>
+      <option value="put">Put</option>
     </select>
   </label>
 
-  <button onclick="calculateOption()">Calculate</button>
-  <button id="heatmapBtn">Show Heat Map</button>
+  <div class="button-row">
+    <button onclick="showHeatmap()">Show Heat Map</button>
+  </div>
 
-  <h3 id="result"></h3>
-
-  <h3>Heatmap (Strike vs Volatility)</h3>
-  <div id="heatmap" style="width: 700px; height: 500px;"></div>
+  <div id="heatmapContainer">
+    <h2>Heatmap (Strike vs Volatility)</h2>
+    <canvas id="heatmap" width="800" height="500"></canvas>
+  </div>
 
   <script>
-    const API_URL = "https://black-scholes-api-w8et.onrender.com/option_price";
+    async function getOptionPrice(data) {
+      try {
+        const response = await fetch("https://black-scholes-api-w8et.onrender.com/api/price", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
 
-    function calculateOption() {
-      const data = getFormData();
-
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      })
-      .then(res => res.json())
-      .then(result => {
-        document.getElementById("result").innerText = `Option Price: $${parseFloat(result.price).toFixed(2)}`;
-      })
-      .catch(err => console.error(err));
-    }
-
-    function getFormData() {
-      return {
-        S: parseFloat(document.getElementById("stockPrice").value),
-        K: parseFloat(document.getElementById("strikePrice").value),
-        T: parseFloat(document.getElementById("maturity").value),
-        r: parseFloat(document.getElementById("interestRate").value),
-        sigma: parseFloat(document.getElementById("volatility").value),
-        option_type: document.getElementById("optionType").value
-      };
-    }
-
-    document.getElementById("heatmapBtn").addEventListener("click", () => {
-      const S = parseFloat(document.getElementById("stockPrice").value);
-      const T = parseFloat(document.getElementById("maturity").value);
-      const r = parseFloat(document.getElementById("interestRate").value);
-      const option_type = document.getElementById("optionType").value;
-
-      const strikes = [];
-      const vols = [];
-
-      for (let k = 80; k <= 120; k += 5) strikes.push(k);
-      for (let v = 0.1; v <= 0.5; v += 0.05) vols.push(parseFloat(v.toFixed(2)));
-
-      const zData = [];
-      let completed = 0;
-
-      for (let i = 0; i < vols.length; i++) {
-        zData[i] = [];
-        for (let j = 0; j < strikes.length; j++) {
-          const K = strikes[j];
-          const sigma = vols[i];
-
-          fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ S, K, T, r, sigma, option_type })
-          })
-          .then(res => res.json())
-          .then(data => {
-            zData[i][j] = parseFloat(data.price.toFixed(2));
-            completed++;
-
-            if (completed === vols.length * strikes.length) {
-              Plotly.newPlot("heatmap", [{
-                z: zData,
-                x: strikes,
-                y: vols,
-                type: "heatmap",
-                colorscale: "Viridis"
-              }], {
-                title: "Option Price Heatmap",
-                xaxis: { title: "Strike Price" },
-                yaxis: { title: "Volatility" }
-              });
-            }
-          })
-          .catch(err => console.error("Error fetching data", err));
-        }
+        const result = await response.json();
+        return result.option_price || null;
+      } catch (error) {
+        console.error("API Error:", error);
+        return null;
       }
-    });
+    }
+
+    async function showHeatmap() {
+      const stockPrice = parseFloat(document.getElementById("stockPrice").value);
+      const T = parseFloat(document.getElementById("timeToMaturity").value);
+      const r = parseFloat(document.getElementById("interestRate").value);
+      const optionType = document.getElementById("optionType").value;
+
+      const strikes = Array.from({ length: 11 }, (_, i) => 80 + i * 4); // 80 to 120
+      const volatilities = Array.from({ length: 11 }, (_, i) => 0.1 + i * 0.03); // 0.1 to 0.4
+
+      const dataMatrix = [];
+
+      for (const v of volatilities) {
+        const row = [];
+        for (const k of strikes) {
+          const price = await getOptionPrice({
+            S: stockPrice,
+            K: k,
+            T,
+            r,
+            sigma: v,
+            option_type: optionType
+          });
+          row.push(price ?? 0);
+        }
+        dataMatrix.push(row);
+      }
+
+      renderHeatmap(strikes, volatilities, dataMatrix);
+    }
+
+    let chartInstance;
+
+    function renderHeatmap(strikes, volatilities, matrix) {
+      const ctx = document.getElementById("heatmap").getContext("2d");
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: "heatmap",
+        data: {
+          labels: strikes.map(k => `K=${k}`),
+          datasets: volatilities.map((v, i) => ({
+            label: `σ=${v.toFixed(2)}`,
+            data: matrix[i],
+            backgroundColor: matrix[i].map(val =>
+              `rgba(0, 255, 0, ${Math.min(1, val / 30)})`
+            ),
+            borderColor: "#ccc",
+            borderWidth: 1
+          }))
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              title: { display: true, text: "Strike Price" }
+            },
+            y: {
+              title: { display: true, text: "Volatility (σ)" },
+              ticks: {
+                callback: (val, i) => `σ=${volatilities[i].toFixed(2)}`
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `Option Price: $${context.raw.toFixed(2)}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
   </script>
 </body>
 </html>
