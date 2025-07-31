@@ -2,47 +2,136 @@
 <html>
 <head>
   <title>Black-Scholes Option Pricer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px 40px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      max-width: 500px;
+      width: 100%;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #00c6ff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0072ff;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #result {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h1>Option Pricer</h1>
-  <form id="bsForm">
-    <label>Stock Price: <input type="number" name="stockPrice" step="any" required></label><br>
-    <label>Strike Price: <input type="number" name="strikePrice" step="any" required></label><br>
-    <label>Time to Maturity (years): <input type="number" name="timeToMaturity" step="any" required></label><br>
-    <label>Interest Rate: <input type="number" name="interestRate" step="any" required></label><br>
-    <label>Volatility: <input type="number" name="volatility" step="any" required></label><br>
-    <label>Option Type:
-      <select name="optionType">
-        <option value="call">Call</option>
-        <option value="put">Put</option>
-      </select>
-    </label><br><br>
-    <button type="submit">Calculate</button>
-  </form>
-  <h2 id="result"></h2>
+  <div class="card">
+    <h1>Black-Scholes Option Pricer</h1>
+    <label>Ticker Symbol:</label>
+    <input type="text" id="ticker" value="AAPL" onblur="getLivePrice()">
+
+    <label>Stock Price:</label>
+    <input type="number" id="stockPrice" placeholder="Auto-filled from ticker...">
+
+    <label>Strike Price:</label>
+    <input type="number" id="strikePrice" value="90">
+
+    <label>Time to Maturity (years):</label>
+    <input type="number" id="timeToMaturity" value="1">
+
+    <label>Interest Rate:</label>
+    <input type="number" step="0.01" id="interestRate" value="0.05">
+
+    <label>Volatility:</label>
+    <input type="number" step="0.01" id="volatility" value="0.2">
+
+    <label>Option Type:</label>
+    <select id="optionType">
+      <option value="call">Call</option>
+      <option value="put">Put</option>
+    </select>
+
+    <button onclick="calculate()">Calculate</button>
+    <div id="result"></div>
+  </div>
 
   <script>
-    document.getElementById("bsForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const data = {
-        stockPrice: form.stockPrice.value,
-        strikePrice: form.strikePrice.value,
-        timeToMaturity: form.timeToMaturity.value,
-        interestRate: form.interestRate.value,
-        volatility: form.volatility.value,
-        optionType: form.optionType.value
-      };
+    async function getLivePrice() {
+      const ticker = document.getElementById('ticker').value.toUpperCase();
+      if (!ticker) return;
+      try {
+        const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`);
+        const json = await res.json();
+        const price = json.quoteResponse.result[0]?.regularMarketPrice;
+        if (price) {
+          document.getElementById('stockPrice').value = price.toFixed(2);
+        } else {
+          alert("Ticker not found.");
+        }
+      } catch (err) {
+        alert("Failed to fetch live price.");
+      }
+    }
 
-      const res = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+    async function calculate() {
+      const S = document.getElementById('stockPrice').value;
+      const K = document.getElementById('strikePrice').value;
+      const T = document.getElementById('timeToMaturity').value;
+      const r = document.getElementById('interestRate').value;
+      const sigma = document.getElementById('volatility').value;
+      const optionType = document.getElementById('optionType').value;
+
+      const response = await fetch("https://YOUR-BACKEND-URL.onrender.com/price", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          stockPrice: S,
+          strikePrice: K,
+          timeToMaturity: T,
+          interestRate: r,
+          volatility: sigma,
+          optionType: optionType
+        })
       });
 
-      const result = await res.json();
-      document.getElementById("result").innerText = "Option Price: $" + result.price;
-    });
+      const data = await response.json();
+      document.getElementById("result").textContent = `Option Price: $${data.price.toFixed(2)}`;
+    }
   </script>
 </body>
 </html>
