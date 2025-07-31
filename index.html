@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Black-Scholes Option Pricer</title>
+</head>
+<body>
+  <h1>Option Pricer</h1>
+  <form id="bsForm">
+    <label>Stock Price: <input type="number" name="stockPrice" step="any" required></label><br>
+    <label>Strike Price: <input type="number" name="strikePrice" step="any" required></label><br>
+    <label>Time to Maturity (years): <input type="number" name="timeToMaturity" step="any" required></label><br>
+    <label>Interest Rate: <input type="number" name="interestRate" step="any" required></label><br>
+    <label>Volatility: <input type="number" name="volatility" step="any" required></label><br>
+    <label>Option Type:
+      <select name="optionType">
+        <option value="call">Call</option>
+        <option value="put">Put</option>
+      </select>
+    </label><br><br>
+    <button type="submit">Calculate</button>
+  </form>
+  <h2 id="result"></h2>
+
+  <script>
+    document.getElementById("bsForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        stockPrice: form.stockPrice.value,
+        strikePrice: form.strikePrice.value,
+        timeToMaturity: form.timeToMaturity.value,
+        interestRate: form.interestRate.value,
+        volatility: form.volatility.value,
+        optionType: form.optionType.value
+      };
+
+      const res = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      const result = await res.json();
+      document.getElementById("result").innerText = "Option Price: $" + result.price;
+    });
+  </script>
+</body>
+</html>
