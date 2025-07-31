@@ -4,111 +4,134 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Black-Scholes Option Pricer</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #2c5364, #203a43, #0f2027);
-      color: white;
-      padding: 40px;
+      background: linear-gradient(to right, #1e3c50, #274a5e);
+      color: #fff;
+      padding: 30px;
     }
     h1 {
-      font-size: 32px;
+      font-size: 2em;
       margin-bottom: 20px;
     }
-    input, select, button {
-      margin: 8px 0;
-      padding: 8px;
-      font-size: 16px;
+    input, select {
+      padding: 5px;
+      margin-bottom: 10px;
+      width: 200px;
+      display: block;
     }
     button {
+      padding: 10px 15px;
       background-color: #28a745;
       color: white;
       border: none;
-      cursor: pointer;
-    }
-    canvas {
-      margin-top: 20px;
-      border: 1px solid white;
+      margin-right: 10px;
     }
   </style>
 </head>
 <body>
   <h1>Black-Scholes Option Pricer</h1>
-  <label>Stock Price: <input type="number" id="stockPrice" value="100" /></label><br/>
-  <label>Strike Price: <input type="number" id="strikePrice" value="90" /></label><br/>
-  <label>Time to Maturity (years): <input type="number" id="time" value="1" /></label><br/>
-  <label>Interest Rate: <input type="number" step="0.01" id="rate" value="0.05" /></label><br/>
-  <label>Volatility: <input type="number" step="0.01" id="volatility" value="0.2" /></label><br/>
-  <label>Option Type:
+
+  <label>Stock Price: <input id="stockPrice" value="100" /></label>
+  <label>Strike Price: <input id="strikePrice" value="90" /></label>
+  <label>Time to Maturity (years): <input id="maturity" value="1" /></label>
+  <label>Interest Rate: <input id="interestRate" value="0.05" /></label>
+  <label>Volatility: <input id="volatility" value="0.2" /></label>
+  <label>Option Type: 
     <select id="optionType">
-      <option value="call">Call</option>
-      <option value="put">Put</option>
+      <option value="Call">Call</option>
+      <option value="Put">Put</option>
     </select>
-  </label><br/>
-  <button onclick="generateHeatmapData()">Show Heat Map</button>
+  </label>
+
+  <button onclick="calculateOption()">Calculate</button>
+  <button id="heatmapBtn">Show Heat Map</button>
+
+  <h3 id="result"></h3>
 
   <h3>Heatmap (Strike vs Volatility)</h3>
-  <canvas id="heatmap" width="600" height="400"></canvas>
+  <div id="heatmap" style="width: 700px; height: 500px;"></div>
 
   <script>
-    function generateHeatmapData() {
-      const basePrice = parseFloat(document.getElementById("stockPrice").value);
-      const time = parseFloat(document.getElementById("time").value);
-      const rate = parseFloat(document.getElementById("rate").value);
-      const optionType = document.getElementById("optionType").value;
+    const API_URL = "https://black-scholes-api-w8et.onrender.com/option_price";
 
-      const strikes = Array.from({ length: 11 }, (_, i) => basePrice * 0.8 + i * (basePrice * 0.05));
-      const vols = Array.from({ length: 11 }, (_, i) => 0.1 + i * 0.05);
-      const data = [];
+    function calculateOption() {
+      const data = getFormData();
 
-      let pending = strikes.length * vols.length;
-      strikes.forEach((strike, i) => {
-        data[i] = [];
-        vols.forEach((vol, j) => {
-          fetch("https://black-scholes-api-w8et.onrender.com/price", {
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(result => {
+        document.getElementById("result").innerText = `Option Price: $${parseFloat(result.price).toFixed(2)}`;
+      })
+      .catch(err => console.error(err));
+    }
+
+    function getFormData() {
+      return {
+        S: parseFloat(document.getElementById("stockPrice").value),
+        K: parseFloat(document.getElementById("strikePrice").value),
+        T: parseFloat(document.getElementById("maturity").value),
+        r: parseFloat(document.getElementById("interestRate").value),
+        sigma: parseFloat(document.getElementById("volatility").value),
+        option_type: document.getElementById("optionType").value
+      };
+    }
+
+    document.getElementById("heatmapBtn").addEventListener("click", () => {
+      const S = parseFloat(document.getElementById("stockPrice").value);
+      const T = parseFloat(document.getElementById("maturity").value);
+      const r = parseFloat(document.getElementById("interestRate").value);
+      const option_type = document.getElementById("optionType").value;
+
+      const strikes = [];
+      const vols = [];
+
+      for (let k = 80; k <= 120; k += 5) strikes.push(k);
+      for (let v = 0.1; v <= 0.5; v += 0.05) vols.push(parseFloat(v.toFixed(2)));
+
+      const zData = [];
+      let completed = 0;
+
+      for (let i = 0; i < vols.length; i++) {
+        zData[i] = [];
+        for (let j = 0; j < strikes.length; j++) {
+          const K = strikes[j];
+          const sigma = vols[i];
+
+          fetch(API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              S: basePrice,
-              K: strike,
-              T: time,
-              r: rate,
-              sigma: vol,
-              option_type: optionType,
-            }),
+            body: JSON.stringify({ S, K, T, r, sigma, option_type })
           })
-          .then((res) => res.json())
-          .then((result) => {
-            data[i][j] = result.price;
-            pending--;
-            if (pending === 0) drawHeatmap(strikes, vols, data);
-          });
-        });
-      });
-    }
+          .then(res => res.json())
+          .then(data => {
+            zData[i][j] = parseFloat(data.price.toFixed(2));
+            completed++;
 
-    function drawHeatmap(strikes, vols, data) {
-      const canvas = document.getElementById("heatmap");
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const cellWidth = canvas.width / vols.length;
-      const cellHeight = canvas.height / strikes.length;
-
-      const allPrices = data.flat();
-      const min = Math.min(...allPrices);
-      const max = Math.max(...allPrices);
-
-      strikes.forEach((_, i) => {
-        vols.forEach((_, j) => {
-          const price = data[i][j];
-          const norm = (price - min) / (max - min);
-          const color = `hsl(${240 - 240 * norm}, 100%, 50%)`;
-          ctx.fillStyle = color;
-          ctx.fillRect(j * cellWidth, i * cellHeight, cellWidth, cellHeight);
-        });
-      });
-    }
+            if (completed === vols.length * strikes.length) {
+              Plotly.newPlot("heatmap", [{
+                z: zData,
+                x: strikes,
+                y: vols,
+                type: "heatmap",
+                colorscale: "Viridis"
+              }], {
+                title: "Option Price Heatmap",
+                xaxis: { title: "Strike Price" },
+                yaxis: { title: "Volatility" }
+              });
+            }
+          })
+          .catch(err => console.error("Error fetching data", err));
+        }
+      }
+    });
   </script>
 </body>
 </html>
