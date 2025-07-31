@@ -83,29 +83,50 @@
       const sigma = parseFloat(document.getElementById("volatility").value);
       const type = document.getElementById("type").value;
 
-      const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
-      });
+      try {
+        const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
+        });
 
-      const data = await response.json();
-      document.getElementById("result").innerText = `Option Price: $${data.price.toFixed(2)}`;
+        const data = await response.json();
+
+        if (data.error) {
+          document.getElementById("result").innerText = `❌ Error: ${data.error}`;
+        } else {
+          document.getElementById("result").innerText = `Option Price: $${data.price.toFixed(2)}`;
+        }
+
+      } catch (err) {
+        document.getElementById("result").innerText = `❌ Network Error`;
+        console.error("Network error:", err);
+      }
     }
 
     async function fetchOptionPrice(S, K, T, r, sigma, type) {
-      const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
-      });
+      try {
+        const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
+        });
 
-      const data = await response.json();
-      return data.price.toFixed(2);
+        const data = await response.json();
+
+        if (data.error) {
+          return "ERR";
+        }
+
+        return data.price.toFixed(2);
+      } catch (err) {
+        console.error("Network error fetching price for K=", K, "σ=", sigma);
+        return "ERR";
+      }
     }
 
     async function generateTable() {
