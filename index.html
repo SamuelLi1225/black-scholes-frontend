@@ -4,87 +4,105 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Black-Scholes Option Pricer</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-      color: #fff;
-      padding: 40px;
-    }
-    h1, h2 {
-      color: #fff;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-    input, select {
-      width: 200px;
-      padding: 8px;
-      margin-top: 5px;
-      border-radius: 5px;
-      border: none;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      background-color: #2ecc71;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    table {
-      margin-top: 30px;
-      border-collapse: collapse;
-      width: 100%;
-      background: white;
-      color: black;
-    }
-    th, td {
-      padding: 10px;
-      border: 1px solid #ccc;
-      text-align: center;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Black-Scholes Option Pricer</h1>
+  <div class="container">
+    <aside class="sidebar">
+      <h2>Option Parameters</h2>
 
-  <label>Stock Price: <input id="stock" value="100" /></label>
-  <label>Strike Price: <input id="strike" value="90" /></label>
-  <label>Time to Maturity (years): <input id="maturity" value="1" /></label>
-  <label>Interest Rate: <input id="rate" value="0.05" /></label>
-  <label>Volatility: <input id="volatility" value="0.2" /></label>
-  <label>Option Type: 
-    <select id="type">
-      <option value="Call">Call</option>
-      <option value="Put">Put</option>
-    </select>
-  </label>
+      <label>Stock Price: <input id="stock" value="100" /></label>
+      <label>Strike Price: <input id="strike" value="90" /></label>
+      <label>Time to Maturity (days): <input id="maturity" value="365" /></label>
+      <label>Interest Rate: <input id="rate" value="0.05" /></label>
+      <label>Volatility: <input id="volatility" value="0.2" /></label>
+      <label>Option Type:
+        <select id="type">
+          <option value="Call">Call</option>
+          <option value="Put">Put</option>
+        </select>
+      </label>
 
-  <br>
-  <button onclick="calculate()">Calculate</button>
-  <button onclick="generateTable()">Generate Price Table</button>
+      <!-- Live update: Calculate button removed -->
+    </aside>
 
-  <h2 id="result"></h2>
+    <main class="main-content">
+      <h1>Black-Scholes Option Pricer</h1>
 
-  <h2>Option Price Table (Strike vs Volatility)</h2>
-  <table id="optionTable"></table>
+  <div id="api-error" style="display:none; color:#f87171; text-align:center; font-size:18px; font-weight:600; margin-bottom:24px;"></div>
+  <div id="results" class="results-container" style="display: none;">
+        <h2>Option Prices and Greeks</h2>
+
+        <div class="prices-row">
+          <div class="price-item">
+            <div id="price-label" class="price-label">Option Price</div>
+            <div id="option-price" class="price-value">-</div>
+          </div>
+        </div>
+
+        <div class="greeks-row">
+          <div class="greek-simple">
+            <div class="greek-label">Delta</div>
+            <div id="delta" class="greek-value">-</div>
+          </div>
+          <div class="greek-simple">
+            <div class="greek-label">Gamma</div>
+            <div id="gamma" class="greek-value">-</div>
+          </div>
+          <div class="greek-simple">
+            <div class="greek-label">Theta</div>
+            <div id="theta" class="greek-value">-</div>
+          </div>
+          <div class="greek-simple">
+            <div class="greek-label">Vega</div>
+            <div id="vega" class="greek-value">-</div>
+          </div>
+          <div class="greek-simple">
+            <div class="greek-label">Rho</div>
+            <div id="rho" class="greek-value">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="table-section" style="display: none;">
+        <h2>Option Price Table (Strike vs Volatility)</h2>
+        <table id="optionTable"></table>
+      </div>
+    </main>
+  </div>
 
   <script>
+    // Add live update event listeners to all inputs and select
+    window.addEventListener('DOMContentLoaded', () => {
+      const ids = ["stock", "strike", "maturity", "rate", "volatility", "type"];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          const eventType = el.tagName === 'SELECT' ? 'change' : 'input';
+          el.addEventListener(eventType, () => {
+            calculate();
+          });
+        }
+      });
+      // Initial calculation on load
+      calculate();
+    });
+
     async function calculate() {
       const S = parseFloat(document.getElementById("stock").value);
       const K = parseFloat(document.getElementById("strike").value);
-      const T = parseFloat(document.getElementById("maturity").value);
+      const T_days = parseFloat(document.getElementById("maturity").value);
+      const T = T_days / 365;
       const r = parseFloat(document.getElementById("rate").value);
       const sigma = parseFloat(document.getElementById("volatility").value);
       const type = document.getElementById("type").value;
 
+      const apiErrorDiv = document.getElementById("api-error");
+      apiErrorDiv.style.display = "none";
+      apiErrorDiv.innerText = "";
+
       try {
-        const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+        const response = await fetch("http://localhost:5001/price", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -92,52 +110,127 @@
           body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
         });
 
-        const data = await response.json();
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          data = { error: true };
+        }
 
         if (data.error) {
-          document.getElementById("result").innerText = `❌ Error: ${data.error}`;
+          document.getElementById("results").style.display = "none";
+          document.getElementById("table-section").style.display = "none";
+          apiErrorDiv.innerText = "⚠️ The option pricing API is disabled or isn't working. Please check your backend server.";
+          apiErrorDiv.style.display = "block";
         } else {
-          document.getElementById("result").innerText = `Option Price: $${data.price.toFixed(2)}`;
+          apiErrorDiv.style.display = "none";
+          // Update the label to show the selected option type
+          const optionTypeCapitalized = type.charAt(0).toUpperCase() + type.slice(1);
+          document.getElementById("price-label").innerText = `${optionTypeCapitalized} Price`;
+
+          // Display the price for the selected option type
+          document.getElementById("option-price").innerText = data.price.toFixed(3);
+
+          // Display Greeks for the selected option type
+          if (data.greeks) {
+            document.getElementById("delta").innerText = data.greeks.delta.toFixed(3);
+            document.getElementById("gamma").innerText = data.greeks.gamma.toFixed(3);
+            document.getElementById("theta").innerText = data.greeks.theta.toFixed(3);
+            document.getElementById("vega").innerText = data.greeks.vega.toFixed(3);
+            document.getElementById("rho").innerText = data.greeks.rho.toFixed(3);
+          }
+
+          document.getElementById("results").style.display = "block";
+          document.getElementById("table-section").style.display = "block";
+          await generateTable();
         }
 
       } catch (err) {
-        document.getElementById("result").innerText = `❌ Network Error`;
+        document.getElementById("results").style.display = "none";
+        document.getElementById("table-section").style.display = "none";
+        apiErrorDiv.innerText = "⚠️ The option pricing API is disabled or isn't working. Please check your backend server.";
+        apiErrorDiv.style.display = "block";
         console.error("Network error:", err);
       }
     }
 
     async function fetchOptionPrice(S, K, T, r, sigma, type) {
       try {
-        const response = await fetch("https://black-scholes-api-w8et.onrender.com/price", {
+        console.log(`Fetching price for S=${S}, K=${K}, T=${T}, r=${r}, σ=${sigma}, type=${type}`);
+
+        const response = await fetch("http://localhost:5001/price", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({ S, K, T, r, sigma, option_type: type })
-        });
+        });        console.log("Response status:", response.status);
+
+        if (!response.ok) {
+          console.error("HTTP error:", response.status, response.statusText);
+          return "ERR";
+        }
 
         const data = await response.json();
+        console.log("API response data:", data);
 
         if (data.error) {
+          console.error("API returned error:", data.error);
           return "ERR";
         }
 
         return data.price.toFixed(2);
       } catch (err) {
-        console.error("Network error fetching price for K=", K, "σ=", sigma);
+        console.error("Network error fetching price for K=", K, "σ=", sigma, "Error:", err);
         return "ERR";
+      }
+    }
+
+    function getColorClass(price) {
+      if (price === "ERR") {
+        return "error-value";
+      }
+
+      const numPrice = parseFloat(price);
+
+      // Define thresholds for color coding
+      if (numPrice < 5) {
+        return "low-value";
+      } else if (numPrice < 15) {
+        return "medium-value";
+      } else {
+        return "high-value";
       }
     }
 
     async function generateTable() {
       const table = document.getElementById("optionTable");
-      const strikes = [80, 85, 90, 95, 100];
-      const vols = [0.1, 0.15, 0.2, 0.25, 0.3];
 
       const S = parseFloat(document.getElementById("stock").value);
-      const T = parseFloat(document.getElementById("maturity").value);
+      const K_base = parseFloat(document.getElementById("strike").value);
+      const T_days = parseFloat(document.getElementById("maturity").value);
+      const T = T_days / 365; // Convert days to years for Black-Scholes formula
       const r = parseFloat(document.getElementById("rate").value);
+      const sigma_base = parseFloat(document.getElementById("volatility").value);
       const type = document.getElementById("type").value;
+
+      // Generate strikes around the user's strike price (±20%, ±10%, base, +10%, +20%)
+      const strikes = [
+        Math.round(K_base * 0.8),
+        Math.round(K_base * 0.9),
+        K_base,
+        Math.round(K_base * 1.1),
+        Math.round(K_base * 1.2)
+      ];
+
+      // Generate volatilities around the user's volatility (±40%, ±20%, base, +20%, +40%)
+      const vols = [
+        Math.round(sigma_base * 0.6 * 100) / 100,
+        Math.round(sigma_base * 0.8 * 100) / 100,
+        sigma_base,
+        Math.round(sigma_base * 1.2 * 100) / 100,
+        Math.round(sigma_base * 1.4 * 100) / 100
+      ];
 
       let html = "<tr><th>Strike \\ Vol</th>";
       for (let v of vols) html += `<th>${v}</th>`;
@@ -147,7 +240,8 @@
         html += `<tr><td>${k}</td>`;
         for (let sigma of vols) {
           const price = await fetchOptionPrice(S, k, T, r, sigma, type);
-          html += `<td>$${price}</td>`;
+          const colorClass = getColorClass(price);
+          html += `<td class="${colorClass}">$${price}</td>`;
         }
         html += "</tr>";
       }
