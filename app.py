@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from black_scholes import black_scholes, calculate_greeks
 import json
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)  # Enable CORS for all routes
 
 @app.route('/price', methods=['POST'])
@@ -70,8 +71,12 @@ def calculate_price():
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Black-Scholes API is running'})
 
-@app.route('/', methods=['GET'])
+@app.route('/')
 def home():
+    return send_file('index.html')
+
+@app.route('/api')
+def api_info():
     return jsonify({
         'message': 'Black-Scholes Option Pricing API',
         'endpoints': {
@@ -89,10 +94,15 @@ def home():
     })
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
     print("Starting Black-Scholes Option Pricing API...")
-    print("API will be available at: http://localhost:5001")
+    print(f"API will be available at: http://0.0.0.0:{port}")
     print("Endpoints:")
     print("  POST /price - Calculate option price")
     print("  GET /health - Health check")
-    print("  GET / - API documentation")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    print("  GET / - Frontend application")
+    print("  GET /api - API documentation")
+    
+    app.run(debug=debug, host='0.0.0.0', port=port)
