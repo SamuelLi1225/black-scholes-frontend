@@ -214,22 +214,28 @@
       const sigma_base = parseFloat(document.getElementById("volatility").value);
       const type = document.getElementById("type").value;
 
-      // Generate strikes around the user's strike price (±20%, ±10%, base, +10%, +20%)
+      // Generate 8 strikes around the user's strike price
       const strikes = [
+        Math.round(K_base * 0.7),
         Math.round(K_base * 0.8),
         Math.round(K_base * 0.9),
+        Math.round(K_base * 0.95),
         K_base,
+        Math.round(K_base * 1.05),
         Math.round(K_base * 1.1),
         Math.round(K_base * 1.2)
       ];
 
-      // Generate volatilities around the user's volatility (±40%, ±20%, base, +20%, +40%)
+      // Generate 8 volatilities around the user's volatility
       const vols = [
-        Math.round(sigma_base * 0.6 * 100) / 100,
+        Math.round(sigma_base * 0.5 * 100) / 100,
+        Math.round(sigma_base * 0.65 * 100) / 100,
         Math.round(sigma_base * 0.8 * 100) / 100,
+        Math.round(sigma_base * 0.9 * 100) / 100,
         sigma_base,
+        Math.round(sigma_base * 1.1 * 100) / 100,
         Math.round(sigma_base * 1.2 * 100) / 100,
-        Math.round(sigma_base * 1.4 * 100) / 100
+        Math.round(sigma_base * 1.5 * 100) / 100
       ];
 
       let html = "<tr><th>Strike \\ Vol</th>";
