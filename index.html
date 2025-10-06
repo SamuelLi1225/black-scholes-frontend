@@ -102,7 +102,7 @@
       apiErrorDiv.innerText = "";
 
       try {
-        const response = await fetch("/price", {
+        const response = await fetch("/api/price", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -158,7 +158,7 @@
       try {
         console.log(`Fetching price for S=${S}, K=${K}, T=${T}, r=${r}, σ=${sigma}, type=${type}`);
 
-        const response = await fetch("/price", {
+        const response = await fetch("/api/price", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
